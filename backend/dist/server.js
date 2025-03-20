@@ -8,7 +8,6 @@ const express_1 = __importDefault(require("express"));
 const cors_1 = __importDefault(require("cors"));
 const pg_1 = require("pg");
 const textProcessing_1 = require("./utils/textProcessing");
-const aiProviders_1 = require("./utils/aiProviders");
 // Move this to the very top, before other imports
 dotenv_1.default.config();
 // Add some debugging
@@ -16,64 +15,10 @@ console.log('Environment check:');
 console.log('- PORT:', process.env.PORT);
 console.log('- DATABASE_URL:', process.env.DATABASE_URL ? 'Set (hidden)' : 'Not set');
 console.log('- OPENAI_API_KEY:', process.env.OPENAI_API_KEY ? 'Set (hidden)' : 'Not set');
-console.log('- MISTRAL_API_KEY:', process.env.MISTRAL_API_KEY ? 'Set (hidden)' : 'Not set');
-console.log('- AI_PROVIDER:', process.env.AI_PROVIDER || 'openai');
-// CRITICAL FIX: Force Mistral provider for vector dimension compatibility (1024 vs 1536)
-// Database has 1024-dimensional Mistral embeddings
-console.log('⚠️ ENFORCING MISTRAL to ensure 1024-dimensional embeddings match database');
 const app = (0, express_1.default)();
 const port = process.env.PORT || 3001;
-// Initialize AI provider - FORCED to use Mistral due to vector dimension requirements
-const aiProvider = (() => {
-    // Override AI_PROVIDER to ensure we use Mistral
-    // This is critical because database has 1024-dimensional embeddings
-    // Using OpenAI would produce 1536-dimensional embeddings causing dimension mismatch
-    const provider = "mistral"; // Forced to mistral
-    console.log(`Using AI provider: ${provider} (ENFORCED for db compatibility)`);
-    const mistralKey = process.env.MISTRAL_API_KEY;
-    if (!mistralKey) {
-        throw new Error('MISTRAL_API_KEY environment variable is missing - required for embedding compatibility');
-    }
-    return (0, aiProviders_1.createAIProvider)('mistral', mistralKey);
-})();
 // Middleware
-const allowedOrigins = [
-    'https://chatwithjfkfiles-ovf2awylp-imran-khawajas-projects.vercel.app',
-    'https://chatwithjfkfiles-git-main-imran-khawajas-projects.vercel.app',
-    'https://chatwithjfkfiles.vercel.app',
-    'https://chatwithjfkfiles-a58t.vercel.app',
-    'http://localhost:3000'
-];
-// Handle preflight requests
-app.use((req, res, next) => {
-    const origin = req.headers.origin;
-    if (origin && allowedOrigins.includes(origin)) {
-        res.header('Access-Control-Allow-Origin', origin);
-        res.header('Access-Control-Allow-Methods', 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS');
-        res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, Accept');
-        res.header('Access-Control-Allow-Credentials', 'true');
-        // Handle preflight OPTIONS request
-        if (req.method === 'OPTIONS') {
-            return res.status(204).end();
-        }
-    }
-    next();
-});
-app.use((0, cors_1.default)({
-    origin: function (origin, callback) {
-        // allow requests with no origin (like mobile apps or curl requests)
-        if (!origin)
-            return callback(null, true);
-        if (allowedOrigins.indexOf(origin) === -1) {
-            var msg = 'The CORS policy for this site does not allow access from the specified Origin.';
-            return callback(new Error(msg), false);
-        }
-        return callback(null, true);
-    },
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
-    credentials: true
-}));
+app.use((0, cors_1.default)());
 app.use(express_1.default.json());
 // Database connection
 const pool = new pg_1.Pool({
@@ -90,19 +35,13 @@ app.get('/api/search', async (req, res) => {
     if (!query || typeof query !== 'string') {
         return res.status(400).json({ error: 'Query parameter is required' });
     }
+    console.log('Received query:', query);
     try {
         // Generate embedding for the query
-        console.log('Generating embedding for query...');
-        const queryEmbedding = await (0, textProcessing_1.generateEmbedding)(query, aiProvider);
-        console.log('Generated embedding length:', queryEmbedding.length);
+        const queryEmbedding = await (0, textProcessing_1.generateEmbedding)(query);
         // Format the embedding for PostgreSQL vector type
         const formattedEmbedding = `[${queryEmbedding.join(',')}]`;
-        console.log('Formatted embedding (first few values):', formattedEmbedding.substring(0, 100) + '...');
-        // First, let's check if we have any chunks in the database
-        const chunkCount = await pool.query('SELECT COUNT(*) FROM chunks');
-        console.log('Total chunks in database:', chunkCount.rows[0].count);
         // Search for similar chunks
-        console.log('Executing similarity search...');
         const result = await pool.query(`WITH similar_chunks AS (
         SELECT 
           c.id,
@@ -111,31 +50,12 @@ app.get('/api/search', async (req, res) => {
           f.file_path,
           f.title,
           f.url,
-          1 - (c.embedding <=> $1::vector) as similarity,
-          -- Add position-based scoring to favor chunks that appear earlier in documents
-          CASE 
-            WHEN c.chunk_index = 0 THEN 1.0
-            ELSE 1.0 / (1.0 + c.chunk_index * 0.1)
-          END as position_score,
-          -- Add length-based scoring to favor chunks of appropriate length
-          CASE 
-            WHEN length(c.content) BETWEEN 100 AND 1000 THEN 1.0
-            ELSE 0.8
-          END as length_score
+          1 - (c.embedding <=> $1::vector) as similarity
         FROM chunks c
         JOIN files f ON c.file_id = f.id
-        WHERE 1 - (c.embedding <=> $1::vector) > 0.5  -- Lower threshold to 0.5
-        ORDER BY 
-          (1 - (c.embedding <=> $1::vector)) * 
-          CASE 
-            WHEN c.chunk_index = 0 THEN 1.0
-            ELSE 1.0 / (1.0 + c.chunk_index * 0.1)
-          END * 
-          CASE 
-            WHEN length(c.content) BETWEEN 100 AND 1000 THEN 1.0
-            ELSE 0.8
-          END DESC
-        LIMIT 10  -- Reduce to top 10 most relevant chunks
+        WHERE 1 - (c.embedding <=> $1::vector) > 0.7
+        ORDER BY c.embedding <=> $1::vector
+        LIMIT 5
       )
       SELECT 
         file_path,
@@ -143,62 +63,10 @@ app.get('/api/search', async (req, res) => {
         content,
         url,
         similarity as rank,
-        chunk_index,
-        position_score,
-        length_score
+        chunk_index
       FROM similar_chunks
       ORDER BY rank DESC`, [formattedEmbedding]);
-        console.log('Search results count:', result.rows.length);
-        if (result.rows.length === 0) {
-            // Let's check what the highest similarity score is, even if below threshold
-            const maxSimilarity = await pool.query(`SELECT MAX(1 - (embedding <=> $1::vector)) as max_similarity FROM chunks`, [formattedEmbedding]);
-            console.log('Maximum similarity score found:', maxSimilarity.rows[0].max_similarity);
-            return res.json({
-                answer: "I apologize, but I couldn't find any relevant information to answer your question. Could you please try rephrasing your question or ask about a different topic?",
-                sources: []
-            });
-        }
-        // Construct context from the retrieved chunks
-        const context = await Promise.all(result.rows.map(async (row) => {
-            // Get surrounding chunks for better context
-            const surroundingChunks = await pool.query(`SELECT content, chunk_index
-         FROM chunks
-         WHERE file_id = (SELECT id FROM files WHERE file_path = $1)
-         AND chunk_index BETWEEN $2 - 1 AND $2 + 1
-         ORDER BY chunk_index`, [row.file_path, row.chunk_index]);
-            // Combine chunks with proper formatting
-            const chunks = surroundingChunks.rows
-                .map(chunk => chunk.content)
-                .join('\n\n');
-            return `From ${row.title} (Similarity: ${row.rank.toFixed(2)}):\n\n${chunks}\n\nSource: ${row.url}`;
-        }));
-        // Generate a response using the selected AI provider
-        const answer = await aiProvider.generateResponse([
-            {
-                role: "system",
-                content: `You are a helpful assistant that answers questions about JFK files. Use the provided context to answer the user's question. 
-        Guidelines:
-        1. Only use information from the provided context
-        2. If the context doesn't contain enough information to fully answer the question, say so
-        3. Always cite your sources using the file titles and similarity scores provided
-        4. If you find conflicting information in different sources, mention this
-        5. Be precise and factual in your responses
-        6. If you're not certain about something, express that uncertainty`
-            },
-            {
-                role: "user",
-                content: `Context:\n${context.join('\n\n---\n\n')}\n\nQuestion: ${query}`
-            }
-        ]);
-        // Return both the answer and the sources
-        res.json({
-            answer,
-            sources: result.rows.map(row => ({
-                title: row.title,
-                url: row.url,
-                similarity: row.rank
-            }))
-        });
+        res.json(result.rows);
     }
     catch (error) {
         console.error('Search error:', error);
@@ -210,15 +78,10 @@ app.post('/api/init-files', async (req, res) => {
     try {
         // Check if files already exist
         const existingFiles = await pool.query('SELECT COUNT(*) FROM files');
-        console.log('Existing files count:', existingFiles.rows[0].count);
         if (existingFiles.rows[0].count > 0) {
-            // Let's check the chunks too
-            const existingChunks = await pool.query('SELECT COUNT(*) FROM chunks');
-            console.log('Existing chunks count:', existingChunks.rows[0].count);
             return res.json({
                 message: 'Files already initialized',
-                fileCount: existingFiles.rows[0].count,
-                chunkCount: existingChunks.rows[0].count
+                count: existingFiles.rows[0].count
             });
         }
         // Fetch files from GitHub
@@ -246,7 +109,7 @@ app.post('/api/init-files', async (req, res) => {
                 ]);
                 const fileId = fileResult.rows[0].id;
                 // Process and insert chunks
-                const processedChunks = await (0, textProcessing_1.processText)(content, aiProvider);
+                const processedChunks = await (0, textProcessing_1.processText)(content);
                 console.log(`Generated ${processedChunks.length} chunks for file: ${filePath}`);
                 for (const chunk of processedChunks) {
                     console.log(`Inserting chunk ${chunk.index} with embedding length:`, chunk.embedding.length);
@@ -277,11 +140,6 @@ app.post('/api/init-files', async (req, res) => {
         res.status(500).json({ error: 'Internal server error' });
     }
 });
-// Only start the server if we're not in a serverless environment
-if (process.env.NODE_ENV !== 'production') {
-    app.listen(port, () => {
-        console.log(`Server running on port ${port}`);
-    });
-}
-// Export for serverless
-module.exports = app;
+app.listen(port, () => {
+    console.log(`Server running on port ${port}`);
+});
