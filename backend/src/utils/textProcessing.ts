@@ -6,6 +6,10 @@ const DEBUG = true;
 const CHUNK_SIZE = 1000; // characters
 const CHUNK_OVERLAP = 200; // characters
 
+// Define the required embedding dimension for Mistral (1024) 
+// OpenAI uses 1536 which causes incompatibility with our database
+const REQUIRED_EMBEDDING_DIM = 1024;
+
 export interface Chunk {
   content: string;
   embedding: number[];
@@ -66,6 +70,15 @@ export async function generateEmbedding(text: string, aiProvider: AIProvider): P
     if (DEBUG) console.log('Calling aiProvider.generateEmbedding...');
     const embedding = await aiProvider.generateEmbedding(text);
     if (DEBUG) console.log('Embedding generated successfully, length:', embedding.length);
+    
+    // CRITICAL: Validate embedding dimensions to detect incompatibility early
+    if (embedding.length !== REQUIRED_EMBEDDING_DIM) {
+      console.error(`DIMENSION MISMATCH ERROR: Generated embedding has ${embedding.length} dimensions, but database requires ${REQUIRED_EMBEDDING_DIM} dimensions`);
+      console.error('This is likely because OpenAI is being used instead of Mistral');
+      console.error('OpenAI produces 1536-dimensional embeddings, while Mistral produces 1024-dimensional embeddings');
+      throw new Error(`Embedding dimension mismatch: ${embedding.length} vs required ${REQUIRED_EMBEDDING_DIM}`);
+    }
+    
     return embedding;
   } catch (error) {
     console.error('ERROR in generateEmbedding:', error);

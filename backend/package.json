@@ -22,9 +22,9 @@
     "dev": "nodemon src/server.ts",
     "clean": "rm -rf dist api",
     "prebuild": "npm run clean",
-    "build": "echo 'Forcing Mistral in server.ts...' && sed -i 's/const provider = process.env.AI_PROVIDER || .openai.;/const provider = \"mistral\"; \\/\\/ FORCED for vector compatibility/g' src/server.ts || true && tsc && echo 'Verifying no OpenAI in textProcessing.js...' && grep -v 'openai' dist/utils/textProcessing.js && mkdir -p api && echo \"module.exports = require('../dist/server');\" > api/index.js",
-    "build:vercel": "./vercel-build.sh",
+    "build": "echo 'Building with TypeScript...' && tsc --outDir dist && mkdir -p api && echo \"module.exports = require('../dist/server');\" > api/index.js",
+    "build:vercel": "npm run clean && echo 'Building for Vercel deployment...' && tsc --outDir dist && echo 'Creating API endpoint...' && mkdir -p api && echo \"module.exports = require('../dist/server');\" > api/index.js",
     "db:init": "ts-node src/db/init.ts",
-    "verify:build": "grep -r \"new openai_1.default\" dist || echo \"No direct OpenAI imports found\""
+    "verify:build": "node -e \"console.log('Verifying build...'); const fs=require('fs'); try { const server=fs.readFileSync('./dist/server.js', 'utf8'); console.log('✅ server.js exists'); if(server.includes('mistral')) { console.log('✅ server.js contains mistral'); } else { console.log('❌ server.js missing mistral references'); }} catch(e) { console.error('❌ server.js not found'); }\""
   }
 }
