@@ -3,7 +3,7 @@
   "buildCommand": "npm run build",
   "outputDirectory": "build",
   "installCommand": "npm install",
-  "framework": "nextjs",
+  "framework": "create-react-app",
   "rewrites": [
     {
       "source": "/api/:path*",
