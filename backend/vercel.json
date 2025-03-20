@@ -10,9 +10,6 @@
     }
   ],
   "buildCommand": "npm run build:vercel",
-  "env": {
-    "AI_PROVIDER": "mistral"
-  },
   "build": {
     "env": {
       "VERCEL_FORCE_NO_BUILD_CACHE": "1"
