@@ -3,5 +3,8 @@
   "buildCommand": "npm run build",
   "outputDirectory": "build",
   "installCommand": "npm install",
-  "framework": "create-react-app"
+  "framework": "create-react-app",
+  "env": {
+    "REACT_APP_API_URL": "https://chatwithjfkfiles-a58t-pdc3b8841-imran-khawajas-projects.vercel.app"
+  }
 } 
