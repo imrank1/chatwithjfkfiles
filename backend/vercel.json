@@ -4,7 +4,7 @@
   "outputDirectory": "dist",
   "installCommand": "npm install",
   "functions": {
-    "api/index.js": {
+    "dist/api/index.js": {
       "memory": 1024,
       "maxDuration": 10
     }
