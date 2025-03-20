@@ -40,16 +40,46 @@ const aiProvider = (() => {
 })();
 
 // Middleware
+const allowedOrigins = [
+  'https://chatwithjfkfiles-ovf2awylp-imran-khawajas-projects.vercel.app',
+  'https://chatwithjfkfiles-git-main-imran-khawajas-projects.vercel.app', 
+  'https://chatwithjfkfiles.vercel.app',
+  'https://chatwithjfkfiles-a58t.vercel.app',
+  'http://localhost:3000'
+];
+
+// Handle preflight requests
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  if (origin && allowedOrigins.includes(origin)) {
+    res.header('Access-Control-Allow-Origin', origin);
+    res.header('Access-Control-Allow-Methods', 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS');
+    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, Accept');
+    res.header('Access-Control-Allow-Credentials', 'true');
+    
+    // Handle preflight OPTIONS request
+    if (req.method === 'OPTIONS') {
+      return res.status(204).end();
+    }
+  }
+  next();
+});
+
 app.use(cors({
-  origin: [
-    'https://chatwithjfkfiles-git-main-imran-khawajas-projects.vercel.app',
-    'https://chatwithjfkfiles-a58t-pdc3b8841-imran-khawajas-projects.vercel.app', 
-    'http://localhost:3000'
-  ],
+  origin: function(origin, callback) {
+    // allow requests with no origin (like mobile apps or curl requests)
+    if(!origin) return callback(null, true);
+    if(allowedOrigins.indexOf(origin) === -1) {
+      var msg = 'The CORS policy for this site does not allow access from the specified Origin.';
+      return callback(new Error(msg), false);
+    }
+    return callback(null, true);
+  },
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
   credentials: true
 }));
+
 app.use(express.json());
 
 // Database connection
