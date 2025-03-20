@@ -4,6 +4,8 @@ const app = require('../dist/server');
 // Define allowed origins
 const allowedOrigins = [
   'https://chatwithjfkfiles-ovf2awylp-imran-khawajas-projects.vercel.app',
+  'https://chatwithjfkfiles.vercel.app',
+  'https://chatwithjfkfiles-a58t.vercel.app',
   'http://localhost:3000' // Allow local development
 ];
 
