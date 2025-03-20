@@ -20,6 +20,8 @@
   "scripts": {
     "start": "node dist/server.js",
     "dev": "nodemon src/server.ts",
+    "clean": "rm -rf dist api",
+    "prebuild": "npm run clean",
     "build": "tsc && mkdir -p api && echo \"module.exports = require('../dist/server');\" > api/index.js",
     "db:init": "ts-node src/db/init.ts"
   }

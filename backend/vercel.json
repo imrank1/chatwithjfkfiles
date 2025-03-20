@@ -9,6 +9,7 @@
       "dest": "/api/index.js"
     }
   ],
+  "buildCommand": "./vercel-build.sh",
   "env": {
     "AI_PROVIDER": "mistral"
   }
