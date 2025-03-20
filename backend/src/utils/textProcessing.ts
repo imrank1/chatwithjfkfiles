@@ -45,7 +45,7 @@ export function splitIntoChunks(text: string): Chunk[] {
 }
 
 export async function generateEmbedding(text: string, aiProvider: AIProvider): Promise<number[]> {
-  console.log('Generating embedding for text:', text);
+  console.log('Generating embedding for text:', text.substring(0, 50) + '...');
   try {
     return await aiProvider.generateEmbedding(text);
   } catch (error) {

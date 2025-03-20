@@ -20,10 +20,24 @@ const app = express();
 const port = process.env.PORT || 3001;
 
 // Initialize AI provider
-const aiProvider = createAIProvider(
-  process.env.AI_PROVIDER || 'openai',
-  process.env.AI_PROVIDER === 'mistral' ? process.env.MISTRAL_API_KEY! : process.env.OPENAI_API_KEY!
-);
+const aiProvider = (() => {
+  const provider = process.env.AI_PROVIDER || 'openai';
+  console.log(`Using AI provider: ${provider}`);
+  
+  if (provider === 'mistral') {
+    const mistralKey = process.env.MISTRAL_API_KEY;
+    if (!mistralKey) {
+      throw new Error('MISTRAL_API_KEY environment variable is missing');
+    }
+    return createAIProvider('mistral', mistralKey);
+  } else {
+    const openaiKey = process.env.OPENAI_API_KEY;
+    if (!openaiKey) {
+      throw new Error('OPENAI_API_KEY environment variable is missing');
+    }
+    return createAIProvider('openai', openaiKey);
+  }
+})();
 
 // Middleware
 app.use(cors({
