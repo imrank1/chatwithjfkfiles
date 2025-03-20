@@ -10,18 +10,22 @@ export class OpenAIProvider implements AIProvider {
   private client: OpenAI;
 
   constructor(apiKey: string) {
+    console.log("Initializing OpenAIProvider");
     this.client = new OpenAI({ apiKey });
   }
 
   async generateEmbedding(text: string): Promise<number[]> {
+    console.log("OpenAIProvider.generateEmbedding called");
     const response = await this.client.embeddings.create({
       input: text,
       model: "text-embedding-ada-002"
     });
+    console.log("OpenAI embedding generated with dimension:", response.data[0].embedding.length);
     return response.data[0].embedding;
   }
 
   async generateResponse(messages: Array<{ role: string; content: string }>): Promise<string> {
+    console.log("OpenAIProvider.generateResponse called");
     const completion = await this.client.chat.completions.create({
       model: "gpt-4-turbo-preview",
       messages: messages as OpenAI.Chat.ChatCompletionMessageParam[],
@@ -40,10 +44,12 @@ export class MistralProvider implements AIProvider {
   private client: Mistral;
 
   constructor(apiKey: string) {
+    console.log("Initializing MistralProvider");
     this.client = new Mistral({ apiKey });
   }
 
   async generateEmbedding(text: string): Promise<number[]> {
+    console.log("MistralProvider.generateEmbedding called");
     const response = await this.client.embeddings.create({
       model: "mistral-embed",
       inputs: [text]
@@ -52,10 +58,12 @@ export class MistralProvider implements AIProvider {
     if (!embedding) {
       throw new Error('No embedding in response');
     }
+    console.log("Mistral embedding generated with dimension:", embedding.length);
     return embedding;
   }
 
   async generateResponse(messages: Array<{ role: string; content: string }>): Promise<string> {
+    console.log("MistralProvider.generateResponse called");
     // Convert messages to the correct type
     const mistralMessages = messages.map(msg => ({
       role: msg.role as "system" | "user" | "assistant",
@@ -87,12 +95,15 @@ export class MistralProvider implements AIProvider {
 }
 
 export function createAIProvider(provider: string, apiKey: string): AIProvider {
+  console.log(`Creating AI provider: ${provider}`);
+  
   switch (provider.toLowerCase()) {
     case 'openai':
       return new OpenAIProvider(apiKey);
     case 'mistral':
       return new MistralProvider(apiKey);
     default:
-      throw new Error(`Unsupported AI provider: ${provider}`);
+      console.error(`Unsupported AI provider: ${provider}. Falling back to Mistral.`);
+      return new MistralProvider(apiKey);
   }
 } 
