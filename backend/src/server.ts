@@ -27,9 +27,14 @@ const aiProvider = createAIProvider(
 
 // Middleware
 app.use(cors({
-  origin: '*',
+  origin: [
+    'https://chatwithjfkfiles-git-main-imran-khawajas-projects.vercel.app',
+    'https://chatwithjfkfiles-a58t-pdc3b8841-imran-khawajas-projects.vercel.app', 
+    'http://localhost:3000'
+  ],
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+  allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
+  credentials: true
 }));
 app.use(express.json());
 
