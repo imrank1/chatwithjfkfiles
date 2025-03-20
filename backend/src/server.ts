@@ -16,27 +16,26 @@ console.log('- OPENAI_API_KEY:', process.env.OPENAI_API_KEY ? 'Set (hidden)' : '
 console.log('- MISTRAL_API_KEY:', process.env.MISTRAL_API_KEY ? 'Set (hidden)' : 'Not set');
 console.log('- AI_PROVIDER:', process.env.AI_PROVIDER || 'openai');
 
+// CRITICAL FIX: Force Mistral provider for vector dimension compatibility (1024 vs 1536)
+// Database has 1024-dimensional Mistral embeddings
+console.log('⚠️ ENFORCING MISTRAL to ensure 1024-dimensional embeddings match database');
+
 const app = express();
 const port = process.env.PORT || 3001;
 
-// Initialize AI provider
+// Initialize AI provider - FORCED to use Mistral due to vector dimension requirements
 const aiProvider = (() => {
-  const provider = process.env.AI_PROVIDER || 'openai';
-  console.log(`Using AI provider: ${provider}`);
+  // Override AI_PROVIDER to ensure we use Mistral
+  // This is critical because database has 1024-dimensional embeddings
+  // Using OpenAI would produce 1536-dimensional embeddings causing dimension mismatch
+  const provider = "mistral"; // Forced to mistral
+  console.log(`Using AI provider: ${provider} (ENFORCED for db compatibility)`);
   
-  if (provider === 'mistral') {
-    const mistralKey = process.env.MISTRAL_API_KEY;
-    if (!mistralKey) {
-      throw new Error('MISTRAL_API_KEY environment variable is missing');
-    }
-    return createAIProvider('mistral', mistralKey);
-  } else {
-    const openaiKey = process.env.OPENAI_API_KEY;
-    if (!openaiKey) {
-      throw new Error('OPENAI_API_KEY environment variable is missing');
-    }
-    return createAIProvider('openai', openaiKey);
+  const mistralKey = process.env.MISTRAL_API_KEY;
+  if (!mistralKey) {
+    throw new Error('MISTRAL_API_KEY environment variable is missing - required for embedding compatibility');
   }
+  return createAIProvider('mistral', mistralKey);
 })();
 
 // Middleware
