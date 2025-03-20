@@ -278,4 +278,5 @@ if (process.env.NODE_ENV !== 'production') {
   });
 }
 
-export { app }; 
+// Export for serverless
+module.exports = app; 
