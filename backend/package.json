@@ -18,7 +18,7 @@
     "zod": "^3.24.2"
   },
   "scripts": {
-    "start": "node dist/server.js",
+    "start": "node api/server.js",
     "dev": "nodemon src/server.ts",
     "build": "tsc",
     "db:init": "ts-node src/db/init.ts"
