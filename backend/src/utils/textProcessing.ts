@@ -1,14 +1,7 @@
-import dotenv from 'dotenv';
-dotenv.config();
-
-import OpenAI from 'openai';
+import { AIProvider } from './aiProviders';
 
 const CHUNK_SIZE = 1000; // characters
 const CHUNK_OVERLAP = 200; // characters
-
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
 
 export interface Chunk {
   content: string;
@@ -51,27 +44,22 @@ export function splitIntoChunks(text: string): Chunk[] {
   return chunks;
 }
 
-export async function generateEmbedding(text: string): Promise<number[]> {
+export async function generateEmbedding(text: string, aiProvider: AIProvider): Promise<number[]> {
   console.log('Generating embedding for text:', text);
   try {
-    const response = await openai.embeddings.create({
-      input: text,
-      model: "text-embedding-ada-002"
-    });
-
-    return response.data[0].embedding;
+    return await aiProvider.generateEmbedding(text);
   } catch (error) {
     console.error('Error generating embedding:', error);
     throw error;
   }
 }
 
-export async function processText(text: string): Promise<Chunk[]> {
+export async function processText(text: string, aiProvider: AIProvider): Promise<Chunk[]> {
   const chunks = splitIntoChunks(text);
   const processedChunks: Chunk[] = [];
 
   for (let i = 0; i < chunks.length; i++) {
-    const embedding = await generateEmbedding(chunks[i].content);
+    const embedding = await generateEmbedding(chunks[i].content, aiProvider);
     processedChunks.push({
       content: chunks[i].content,
       embedding: embedding,

@@ -32,7 +32,7 @@ async function initDB() {
         id SERIAL PRIMARY KEY,
         file_id INTEGER REFERENCES files(id),
         content TEXT NOT NULL,
-        embedding vector(1536),
+        embedding vector(1024),
         chunk_index INTEGER NOT NULL,
         created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
         CONSTRAINT unique_file_chunk UNIQUE (file_id, chunk_index)

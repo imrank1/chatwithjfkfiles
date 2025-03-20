@@ -3,7 +3,7 @@ import express from 'express';
 import cors from 'cors';
 import { Pool } from 'pg';
 import { processText, generateEmbedding } from './utils/textProcessing';
-import OpenAI from 'openai';
+import { createAIProvider } from './utils/aiProviders';
 
 // Move this to the very top, before other imports
 dotenv.config();
@@ -13,14 +13,17 @@ console.log('Environment check:');
 console.log('- PORT:', process.env.PORT);
 console.log('- DATABASE_URL:', process.env.DATABASE_URL ? 'Set (hidden)' : 'Not set');
 console.log('- OPENAI_API_KEY:', process.env.OPENAI_API_KEY ? 'Set (hidden)' : 'Not set');
+console.log('- MISTRAL_API_KEY:', process.env.MISTRAL_API_KEY ? 'Set (hidden)' : 'Not set');
+console.log('- AI_PROVIDER:', process.env.AI_PROVIDER || 'openai');
 
 const app = express();
 const port = process.env.PORT || 3001;
 
-// Initialize OpenAI client
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+// Initialize AI provider
+const aiProvider = createAIProvider(
+  process.env.AI_PROVIDER || 'openai',
+  process.env.AI_PROVIDER === 'mistral' ? process.env.MISTRAL_API_KEY! : process.env.OPENAI_API_KEY!
+);
 
 // Middleware
 app.use(cors());
@@ -48,7 +51,7 @@ app.get('/api/search', async (req, res) => {
   try {
     // Generate embedding for the query
     console.log('Generating embedding for query...');
-    const queryEmbedding = await generateEmbedding(query);
+    const queryEmbedding = await generateEmbedding(query, aiProvider);
     console.log('Generated embedding length:', queryEmbedding.length);
     
     // Format the embedding for PostgreSQL vector type
@@ -146,31 +149,24 @@ app.get('/api/search', async (req, res) => {
       return `From ${row.title} (Similarity: ${row.rank.toFixed(2)}):\n\n${chunks}\n\nSource: ${row.url}`;
     }));
 
-    // Generate a response using OpenAI with improved prompt
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4-turbo-preview",
-      messages: [
-        {
-          role: "system",
-          content: `You are a helpful assistant that answers questions about JFK files. Use the provided context to answer the user's question. 
-          Guidelines:
-          1. Only use information from the provided context
-          2. If the context doesn't contain enough information to fully answer the question, say so
-          3. Always cite your sources using the file titles and similarity scores provided
-          4. If you find conflicting information in different sources, mention this
-          5. Be precise and factual in your responses
-          6. If you're not certain about something, express that uncertainty`
-        },
-        {
-          role: "user",
-          content: `Context:\n${context.join('\n\n---\n\n')}\n\nQuestion: ${query}`
-        }
-      ],
-      temperature: 0.3, // Lower temperature for more focused responses
-      max_tokens: 1000
-    });
-
-    const answer = completion.choices[0].message.content;
+    // Generate a response using the selected AI provider
+    const answer = await aiProvider.generateResponse([
+      {
+        role: "system",
+        content: `You are a helpful assistant that answers questions about JFK files. Use the provided context to answer the user's question. 
+        Guidelines:
+        1. Only use information from the provided context
+        2. If the context doesn't contain enough information to fully answer the question, say so
+        3. Always cite your sources using the file titles and similarity scores provided
+        4. If you find conflicting information in different sources, mention this
+        5. Be precise and factual in your responses
+        6. If you're not certain about something, express that uncertainty`
+      },
+      {
+        role: "user",
+        content: `Context:\n${context.join('\n\n---\n\n')}\n\nQuestion: ${query}`
+      }
+    ]);
 
     // Return both the answer and the sources
     res.json({
@@ -241,7 +237,7 @@ app.post('/api/init-files', async (req, res) => {
         const fileId = fileResult.rows[0].id;
 
         // Process and insert chunks
-        const processedChunks = await processText(content);
+        const processedChunks = await processText(content, aiProvider);
         console.log(`Generated ${processedChunks.length} chunks for file: ${filePath}`);
         
         for (const chunk of processedChunks) {

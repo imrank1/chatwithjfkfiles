@@ -1,0 +1,15 @@
+I want to create a simple web app that allows the user to chat with the JFK files. 
+
+All of the files can be found here: https://github.com/amasad/jfk_files/. 
+
+The files in that location are in markdown format. 
+
+I would like the any user on the internet to be able to chat with the files using a chat interface. 
+
+The user should be able to ask questions about the files and the app will return the most relevant answer from the files. 
+
+The app should be able to handle a large number of users simultaneously. 
+
+The app should run entirely on the users browser. 
+
+This means the app should read all the files into memory, create an efficitent data store than can run in the browser and be cached. 
