@@ -26,7 +26,14 @@ const aiProvider = createAIProvider(
 );
 
 // Middleware
-app.use(cors());
+app.use(cors({
+  origin: [
+    'https://chatwithjfkfiles-production.up.railway.app',
+    'http://localhost:3000' // for local development
+  ],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
 app.use(express.json());
 
 // Database connection
