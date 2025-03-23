@@ -3,7 +3,12 @@ const path = require('path');
 const app = express();
 const PORT = process.env.PORT || 8080;
 
-// Add a health check endpoint that Railway needs
+// Log environment variables for debugging
+console.log(`Environment check:
+- PORT: ${PORT}
+`);
+
+// Add a health check endpoint
 app.get('/health', (req, res) => {
   res.status(200).send('OK');
 });
