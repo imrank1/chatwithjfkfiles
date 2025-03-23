@@ -1,7 +1,12 @@
 const express = require('express');
 const path = require('path');
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 8080;
+
+// Add a health check endpoint that Railway needs
+app.get('/health', (req, res) => {
+  res.status(200).send('OK');
+});
 
 // Serve static files from the React build folder
 app.use(express.static(path.join(__dirname, 'build')));
