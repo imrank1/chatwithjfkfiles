@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001';
 
@@ -27,8 +27,8 @@ export const useJFKFiles = (): UseJFKFilesReturn => {
     localStorage.getItem('jfk_auth_token')
   );
 
-  // Function to get a new token
-  const getToken = async (): Promise<string> => {
+  // Function to get a new token - memoized with useCallback
+  const getToken = useCallback(async (): Promise<string> => {
     try {
       const response = await fetch(`${API_BASE_URL}/api/token`);
       if (!response.ok) {
@@ -53,7 +53,7 @@ export const useJFKFiles = (): UseJFKFilesReturn => {
       console.error('Token error:', error);
       throw error;
     }
-  };
+  }, []);  // Empty dependency array as it doesn't depend on any props or state
 
   useEffect(() => {
     const initialize = async () => {
@@ -78,7 +78,7 @@ export const useJFKFiles = (): UseJFKFilesReturn => {
     };
 
     initialize();
-  }, [authToken]);
+  }, [authToken, getToken]);  // Now getToken is properly included in the deps
 
   const searchFiles = async (query: string): Promise<string> => {
     try {
