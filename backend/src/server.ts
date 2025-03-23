@@ -4,12 +4,12 @@ import cors from 'cors';
 import { Pool } from 'pg';
 import { processText, generateEmbedding } from './utils/textProcessing';
 import { createAIProvider } from './utils/aiProviders';
+import rateLimit from 'express-rate-limit';
 
 // Move this to the very top, before other imports
 dotenv.config();
 
-// Add after the dotenv.config() line
-console.log('All ENV variables:', Object.keys(process.env));
+
 
 // Add some debugging
 console.log('Environment check:');
@@ -19,6 +19,14 @@ console.log('- OPENAI_API_KEY:', process.env.OPENAI_API_KEY ? 'Set (hidden)' : '
 console.log('- MISTRAL_API_KEY:', process.env.MISTRAL_API_KEY ? 'Set (hidden)' : 'Not set');
 console.log('- AI_PROVIDER:', process.env.AI_PROVIDER || 'openai');
 
+
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // limit each IP to 100 requests per windowMs
+  standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
+  legacyHeaders: false, // Disable the `X-RateLimit-*` headers
+  message: 'Too many requests from this IP, please try again later.'
+});
 const app = express();
 const port = process.env.PORT || 3001;
 
@@ -27,6 +35,9 @@ const aiProvider = createAIProvider(
   process.env.AI_PROVIDER || 'openai',
   process.env.AI_PROVIDER === 'mistral' ? process.env.MISTRAL_API_KEY! : process.env.OPENAI_API_KEY!
 );
+
+// Apply rate limiting globally
+app.use(limiter);
 
 // Middleware
 app.use(cors({
