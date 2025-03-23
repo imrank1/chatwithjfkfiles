@@ -32,7 +32,6 @@ app.use(cors({
     'http://localhost:3000' // for local development
   ],
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
 }));
 app.use(express.json());
 
