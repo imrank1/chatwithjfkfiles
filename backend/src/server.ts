@@ -8,6 +8,9 @@ import { createAIProvider } from './utils/aiProviders';
 // Move this to the very top, before other imports
 dotenv.config();
 
+// Add after the dotenv.config() line
+console.log('All ENV variables:', Object.keys(process.env));
+
 // Add some debugging
 console.log('Environment check:');
 console.log('- PORT:', process.env.PORT);
