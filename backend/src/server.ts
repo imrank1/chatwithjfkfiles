@@ -1,15 +1,14 @@
 import dotenv from 'dotenv';
-import express from 'express';
+import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import { Pool } from 'pg';
 import { processText, generateEmbedding } from './utils/textProcessing';
 import { createAIProvider } from './utils/aiProviders';
 import rateLimit from 'express-rate-limit';
+import jwt from 'jsonwebtoken';
 
 // Move this to the very top, before other imports
 dotenv.config();
-
-
 
 // Add some debugging
 console.log('Environment check:');
@@ -18,7 +17,13 @@ console.log('- DATABASE_URL:', process.env.DATABASE_URL ? 'Set (hidden)' : 'Not 
 console.log('- OPENAI_API_KEY:', process.env.OPENAI_API_KEY ? 'Set (hidden)' : 'Not set');
 console.log('- MISTRAL_API_KEY:', process.env.MISTRAL_API_KEY ? 'Set (hidden)' : 'Not set');
 console.log('- AI_PROVIDER:', process.env.AI_PROVIDER || 'openai');
+console.log('- JWT_SECRET:', process.env.JWT_SECRET ? 'Set (hidden)' : 'Not set');
 
+// Define allowed origins
+const ALLOWED_ORIGINS = [
+  'https://chatwithjfkfiles-production.up.railway.app',
+  'http://localhost:3000'
+];
 
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
@@ -27,6 +32,58 @@ const limiter = rateLimit({
   legacyHeaders: false, // Disable the `X-RateLimit-*` headers
   message: 'Too many requests from this IP, please try again later.'
 });
+
+// JWT authentication middleware
+const authenticateJWT = (req: Request, res: Response, next: NextFunction) => {
+  const authHeader = req.headers.authorization;
+  
+  if (!authHeader) {
+    return res.status(401).json({ 
+      error: 'Authorization header missing',
+      message: 'Please obtain a token from the /api/token endpoint first'
+    });
+  }
+  
+  const token = authHeader.split(' ')[1]; // Format: "Bearer TOKEN"
+  
+  if (!token) {
+    return res.status(401).json({ 
+      error: 'Token missing',
+      message: 'Please obtain a token from the /api/token endpoint first'
+    });
+  }
+  
+  try {
+    jwt.verify(token, process.env.JWT_SECRET || 'fallback_secret_key_for_dev');
+    next();
+  } catch (error) {
+    return res.status(403).json({ 
+      error: 'Invalid or expired token',
+      message: 'Your token has expired. Please obtain a new one from the /api/token endpoint'
+    });
+  }
+};
+
+// Origin check middleware
+const checkOrigin = (req: Request, res: Response, next: NextFunction) => {
+  const origin = req.headers.origin;
+  const referer = req.headers.referer;
+  
+  // Check if the request has a valid origin or referer
+  const hasValidOrigin = origin && ALLOWED_ORIGINS.some(allowedOrigin => origin === allowedOrigin);
+  const hasValidReferer = referer && ALLOWED_ORIGINS.some(allowedOrigin => referer.startsWith(allowedOrigin));
+  
+  if (!hasValidOrigin && !hasValidReferer) {
+    console.warn('Rejected token request from unauthorized origin:', { origin, referer });
+    return res.status(403).json({ 
+      error: 'Forbidden',
+      message: 'Access denied: invalid origin'
+    });
+  }
+  
+  next();
+};
+
 const app = express();
 const port = process.env.PORT || 3001;
 
@@ -41,11 +98,9 @@ app.use(limiter);
 
 // Middleware
 app.use(cors({
-  origin: [
-    'https://chatwithjfkfiles-production.up.railway.app',
-    'http://localhost:3000' // for local development
-  ],
+  origin: ALLOWED_ORIGINS,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  credentials: true, // Enable credentials for cross-origin requests
 }));
 app.use(express.json());
 
@@ -54,13 +109,35 @@ const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
 });
 
-// Health check endpoint
+// Token generation endpoint - no auth required but origin is checked
+app.get('/api/token', checkOrigin, (req, res) => {
+  // Log token request for monitoring
+  console.log('Token requested from:', {
+    origin: req.headers.origin || 'unknown',
+    referer: req.headers.referer || 'unknown',
+    ip: req.ip
+  });
+  
+  // Simple unique identifier for the client
+  const clientId = Math.random().toString(36).substring(2, 15);
+  
+  // Generate token that expires in 24 hours
+  const token = jwt.sign(
+    { clientId, timestamp: Date.now() },
+    process.env.JWT_SECRET || 'fallback_secret_key_for_dev',
+    { expiresIn: '24h' }
+  );
+  
+  res.json({ token, expiresIn: 86400 }); // 86400 seconds = 24 hours
+});
+
+// Health check endpoint - no auth required
 app.get('/health', (req, res) => {
   res.json({ status: 'ok' });
 });
 
-// Search endpoint
-app.get('/api/search', async (req, res) => {
+// Search endpoint - now protected with JWT
+app.get('/api/search', authenticateJWT, async (req, res) => {
   const { query } = req.query;
   console.log('Received query:', query);
   
@@ -204,8 +281,8 @@ app.get('/api/search', async (req, res) => {
   }
 });
 
-// Initialize files endpoint
-app.post('/api/init-files', async (req, res) => {
+// Initialize files endpoint - now protected with JWT
+app.post('/api/init-files', authenticateJWT, async (req, res) => {
   try {
     // Check if files already exist
     const existingFiles = await pool.query('SELECT COUNT(*) FROM files');

@@ -16,34 +16,103 @@ interface SearchResponse {
   }>;
 }
 
+interface TokenResponse {
+  token: string;
+  expiresIn: number;
+}
+
 export const useJFKFiles = (): UseJFKFilesReturn => {
   const [isInitialized, setIsInitialized] = useState(false);
+  const [authToken, setAuthToken] = useState<string | null>(
+    localStorage.getItem('jfk_auth_token')
+  );
+
+  // Function to get a new token
+  const getToken = async (): Promise<string> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/token`);
+      if (!response.ok) {
+        throw new Error('Failed to obtain token');
+      }
+
+      const data: TokenResponse = await response.json();
+      
+      // Store the token
+      localStorage.setItem('jfk_auth_token', data.token);
+      setAuthToken(data.token);
+
+      // Set up token refresh before it expires
+      // Refresh 5 minutes before expiration
+      const refreshTime = (data.expiresIn - 300) * 1000;
+      setTimeout(() => {
+        getToken().catch(console.error);
+      }, refreshTime);
+
+      return data.token;
+    } catch (error) {
+      console.error('Token error:', error);
+      throw error;
+    }
+  };
 
   useEffect(() => {
-    const checkHealth = async () => {
+    const initialize = async () => {
       try {
-        const response = await fetch(`${API_BASE_URL}/health`);
-        if (response.ok) {
-          setIsInitialized(true);
+        // First check server health
+        const healthResponse = await fetch(`${API_BASE_URL}/health`);
+        if (!healthResponse.ok) {
+          throw new Error('Server health check failed');
         }
+
+        // If no token exists, get one
+        if (!authToken) {
+          await getToken();
+        }
+
+        setIsInitialized(true);
       } catch (error) {
-        console.error('Health check failed:', error);
+        console.error('Initialization failed:', error);
+        // Retry after a delay
+        setTimeout(initialize, 5000);
       }
     };
 
-    checkHealth();
-  }, []);
+    initialize();
+  }, [authToken]);
 
   const searchFiles = async (query: string): Promise<string> => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/search?query=${encodeURIComponent(query)}`);
+      // Ensure we have a token
+      const token = authToken || await getToken();
+      
+      const response = await fetch(`${API_BASE_URL}/api/search?query=${encodeURIComponent(query)}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      // If token expired, get a new one and retry
+      if (response.status === 401 || response.status === 403) {
+        const newToken = await getToken();
+        const retryResponse = await fetch(`${API_BASE_URL}/api/search?query=${encodeURIComponent(query)}`, {
+          headers: {
+            'Authorization': `Bearer ${newToken}`
+          }
+        });
+        
+        if (!retryResponse.ok) {
+          throw new Error('Search request failed after token refresh');
+        }
+        
+        const data: SearchResponse = await retryResponse.json();
+        return data.answer;
+      }
+
       if (!response.ok) {
         throw new Error('Search request failed');
       }
 
       const data: SearchResponse = await response.json();
-
-      // Return the AI-generated answer
       return data.answer;
     } catch (error) {
       console.error('Search error:', error);
