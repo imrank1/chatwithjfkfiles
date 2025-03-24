@@ -221,6 +221,20 @@ function App() {
             JFK Files Database
           </Typography>
 
+          <Typography 
+            variant="subtitle1" 
+            component="p" 
+            gutterBottom 
+            align="center"
+            sx={{
+              fontSize: '0.9em',
+              color: 'rgba(0, 255, 0, 0.8)',
+              mb: 2
+            }}
+          >
+            Data sourced from <Box component="span" sx={{ textDecoration: 'underline' }}>github.com/amasad/jfk_files</Box>. All answers are derived exclusively from these files.
+          </Typography>
+
           {messages.length === 0 && (
             <Box
               sx={{
