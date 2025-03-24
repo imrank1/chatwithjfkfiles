@@ -1,6 +1,6 @@
 # Chat with JFK Files
 
-A web application that allows users to interact with the JFK files through a chat interface. The application processes and indexes the JFK files , enabling users to ask questions and receive relevant answers from the historical documents.
+A web application that allows users to interact with the JFK files through a chat interface. The application processes and indexes the JFK files, enabling users to ask questions and receive relevant answers from the historical documents.
 
 ## Features
 
@@ -8,6 +8,7 @@ A web application that allows users to interact with the JFK files through a cha
 - Real-time search and retrieval of relevant information
 - Modern Material-UI based interface
 - TypeScript for type safety and better development experience
+- User authentication system
 
 ## Tech Stack
 
@@ -19,15 +20,18 @@ A web application that allows users to interact with the JFK files through a cha
 - AJV (for JSON validation)
 
 ### Backend
-- Python-based server for serving the JFK files
-- Efficient document processing and indexing
+- Node.js with Express
+- TypeScript
+- PostgreSQL database with pg driver
+- Mistral AI and OpenAI integrations
+- JWT for authentication
 
 ## Getting Started
 
 ### Prerequisites
 - Node.js (v14 or higher)
-- Python 3.x
 - npm or yarn package manager
+- PostgreSQL database
 
 ### Installation
 
@@ -47,43 +51,78 @@ yarn install
 3. Install backend dependencies:
 ```bash
 cd backend
-pip install -r requirements.txt
+npm install
+# or
+yarn install
 ```
 
-4. Create a `.env` file in the root directory with necessary environment variables:
+4. Create a `.env` file in the root directory for frontend:
 ```
-REACT_APP_API_URL=http://localhost:5000
+REACT_APP_API_URL=http://localhost:3001
+```
+
+5. Configure the backend `.env` file in the backend directory:
+```
+DATABASE_URL=your_postgresql_connection_string
+PORT=3001
+OPENAI_API_KEY=your_openai_api_key_here
+MISTRAL_API_KEY=your_mistral_api_key_here
+AI_PROVIDER=mistral  # or 'openai' to use OpenAI
+JWT_SECRET=your_jwt_secret_key
 ```
 
 ### Running the Application
 
-1. Start the backend server:
+1. Initialize the database:
 ```bash
 cd backend
-python app.py
+npm run db:init
 ```
 
-2. In a new terminal, start the frontend development server:
+2. Start the backend server:
 ```bash
-npm start
-# or
-yarn start
+cd backend
+npm run dev
 ```
 
-The application will be available at `http://localhost:3000`
+3. Initialize the JFK files data:
+   - After the server is running, you need to initialize the JFK files data by calling the `/api/init-files` endpoint
+   - This will fetch, process, and store the JFK files from the source repository
+   - You can do this by making an authenticated POST request to `http://localhost:3001/api/init-files`
+   - Or use the frontend interface which should have a button to initialize the files
+
+4. Start the frontend development server:
+```bash
+npm run dev
+```
+
+The application will be available at `http://localhost:3000`, with the backend running on port 3001.
 
 ## Project Structure
 
 ```
 chat-with-jfk/
-├── backend/           # Node backend server
-├── src/              # React frontend source code
-├── public/           # Static assets
-├── build/            # Production build output
-├── package.json      # Frontend dependencies and scripts
-├── requirements.txt  # Backend dependencies
-└── tsconfig.json     # TypeScript configuration
+├── backend/             # Node.js backend server
+│   ├── src/             # Backend source code
+│   │   ├── server.ts    # Express server setup
+│   │   ├── db/          # Database related code
+│   │   └── utils/       # Utility functions
+│   ├── package.json     # Backend dependencies
+│   └── tsconfig.json    # TypeScript configuration for backend
+├── src/                 # React frontend source code
+│   ├── components/      # React components
+│   ├── hooks/           # Custom React hooks
+│   ├── App.tsx          # Main application component
+│   └── types.ts         # TypeScript type definitions
+├── public/              # Static assets
+├── build/               # Production build output
+├── package.json         # Frontend dependencies and scripts
+└── tsconfig.json        # TypeScript configuration for frontend
 ```
+
+## Authentication
+
+The application uses JWT-based authentication. For more details, refer to the AUTHENTICATION.md file.
 
 ## Contributing
 
