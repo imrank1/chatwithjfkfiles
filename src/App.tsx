@@ -228,7 +228,7 @@ function App() {
             align="center"
             sx={{
               fontSize: '0.9em',
-              color: 'rgba(0, 255, 0, 0.8)',
+              color: '#000000',
               mb: 2
             }}
           >
