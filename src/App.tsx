@@ -232,7 +232,7 @@ function App() {
               mb: 2
             }}
           >
-            Data sourced from <Box component="span" sx={{ textDecoration: 'underline' }}>github.com/amasad/jfk_files</Box>. All answers are derived exclusively from these files.
+            Data sourced from <Box component="span" sx={{ textDecoration: 'underline' }}>github.com/amasad/jfk_files which is sourced from https://www.archives.gov/research/jfk/release-2025</Box>. All answers are derived exclusively from these files.
           </Typography>
 
           {messages.length === 0 && (
